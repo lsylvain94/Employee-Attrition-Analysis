@@ -35,3 +35,7 @@ The analysis supports HR teams in making proactive decisions to reduce turnover 
 ---
 
 ## 📁 Project Structure
+
+data/ → dataset  
+visuals/ → dashboard images  
+code/ → analysis scripts  
