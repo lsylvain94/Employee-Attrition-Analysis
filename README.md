@@ -39,3 +39,6 @@ The analysis supports HR teams in making proactive decisions to reduce turnover 
 data/ → dataset  
 visuals/ → dashboard images  
 code/ → analysis scripts  
+
+## 🔗 Live Dashboard
+[View Dashboard](https://public.tableau.com/views/EmployeeAttrition_17763945421710/Dashboard1?:language=en-US&publish=yes&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link)
