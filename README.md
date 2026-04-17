@@ -25,7 +25,7 @@ To identify key drivers of employee attrition and provide actionable insights fo
 ---
 
 ## 📊 Dashboard Preview
-![Dashboard](visuals/dashboard.png)
+![Dashboard](visuals/EmployeeAttritionDashboard.png)
 
 ---
 
