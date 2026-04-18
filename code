@@ -1,1 +1,169 @@
+# DAT 690 Programming Revision
+# Employee Attrition Model
 
+# Load packages
+library(readr)
+library(dplyr)
+library(caret)
+library(pROC)
+library(ggplot2)
+library(knitr)
+library(car)
+
+# Functions
+clean_data <- function(data, target, predictors) {
+  data <- data %>%
+    mutate(across(where(is.character), as.factor)) %>%
+    na.omit()
+  
+  data[[target]] <- factor(data[[target]], levels = c("No", "Yes"))
+  
+  data <- data %>%
+    select(all_of(c(target, predictors)))
+  
+  return(data)
+}
+
+score_model <- function(model, data, cutoff = 0.50) {
+  data$prob <- predict(model, newdata = data, type = "response")
+  data$pred <- ifelse(data$prob >= cutoff, "Yes", "No")
+  data$pred <- factor(data$pred, levels = c("No", "Yes"))
+  return(data)
+}
+
+# File paths
+employeeAttrition <- "C:/Users/Luthnie/Downloads/DAT 690 Data Files/DAT-690 Attrition Project One/EmployeeAttrition_Data.csv"
+verification <- "C:/Users/Luthnie/Downloads/DAT 690 Data Files/DAT-690 Attrition Project One/EmployeeAttrition_Verify.csv"
+
+# Settings
+target <- "Attrition"
+predictors <- c("Age", "MonthlyIncome", "OverTime", "JobSatisfaction", "YearsAtCompany")
+
+cutoff <- 0.50
+train_split <- 0.70
+
+set.seed(690)
+
+# Load data
+employee_data <- read_csv(employeeAttrition, show_col_types = FALSE)
+verification_data <- read_csv(verification, show_col_types = FALSE)
+
+# Inspect data
+str(employee_data)
+dim(employee_data)
+summary(employee_data)
+
+# Clean and prepare data
+employee_data <- clean_data(employee_data, target, predictors)
+verification_data <- clean_data(verification_data, target, predictors)
+
+# Save clean dataset
+write.csv(employee_data, "clean_dataset.csv", row.names = FALSE)
+
+# Explore data
+summary(employee_data)
+
+ggplot(employee_data, aes(x = Age)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of Age")
+
+ggplot(employee_data, aes(x = YearsAtCompany)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of Years at Company")
+
+ggplot(employee_data, aes(x = MonthlyIncome)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of Monthly Income")
+
+# Univariate screening
+table(employee_data$Attrition)
+table(employee_data$OverTime, employee_data$Attrition)
+table(employee_data$JobSatisfaction, employee_data$Attrition)
+
+# Train/test split
+train_index <- createDataPartition(employee_data[[target]], p = train_split, list = FALSE)
+
+train_data <- employee_data[train_index, ]
+test_data <- employee_data[-train_index, ]
+
+# Check class balance
+prop.table(table(train_data$Attrition))
+prop.table(table(test_data$Attrition))
+
+# Build logistic regression model
+model <- glm(
+  Attrition ~ Age + MonthlyIncome + OverTime + JobSatisfaction + YearsAtCompany,
+  data = train_data,
+  family = binomial
+)
+
+summary(model)
+
+# Check collinearity with VIF
+vif_values <- vif(model)
+vif_values
+
+# Save model
+saveRDS(model, "attrition_model.rds")
+
+# Predictions on test set
+test_data <- score_model(model, test_data, cutoff)
+
+# Model evaluation on test data
+cm <- confusionMatrix(test_data$pred, test_data$Attrition, positive = "Yes")
+cm
+
+roc_obj <- roc(test_data$Attrition, test_data$prob, levels = c("No", "Yes"))
+auc_value <- auc(roc_obj)
+
+metrics <- data.frame(
+  Accuracy = cm$overall["Accuracy"],
+  AUC = auc_value
+)
+
+kable(metrics)
+
+plot(roc_obj, main = "ROC Curve")
+
+# Verification dataset evaluation
+verification_data <- score_model(model, verification_data, cutoff)
+
+verification_cm <- confusionMatrix(
+  verification_data$pred,
+  verification_data$Attrition,
+  positive = "Yes"
+)
+verification_cm
+
+verification_roc <- roc(
+  verification_data$Attrition,
+  verification_data$prob,
+  levels = c("No", "Yes")
+)
+verification_auc <- auc(verification_roc)
+
+verification_metrics <- data.frame(
+  Accuracy = verification_cm$overall["Accuracy"],
+  AUC = verification_auc
+)
+
+kable(verification_metrics)
+
+# Save predictions
+write.csv(test_data, "test_predictions.csv", row.names = FALSE)
+write.csv(verification_data, "verification_predictions.csv", row.names = FALSE)
+
+# Odds ratio plot
+odds_df <- data.frame(
+  Variable = names(coef(model))[-1],
+  OddsRatio = exp(coef(model))[-1]
+)
+
+ggplot(odds_df, aes(x = reorder(Variable, OddsRatio), y = OddsRatio)) +
+  geom_point() +
+  coord_flip() +
+  labs(
+    title = "Odds Ratios for Attrition Prediction",
+    x = "Predictor",
+    y = "Odds Ratio"
+  )
